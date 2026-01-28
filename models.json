@@ -1,0 +1,20 @@
+{
+  "models": [
+    {
+      "id": "qwen3:4B",
+      "name": "Qwen 3 (4B)",
+      "description": "مدل Qwen 3 برای چت و تولید متن"
+    },
+    {
+      "id": "qwen2.5",
+      "name": "Qwen 2.5",
+      "description": "نسخه 2.5 مدل Qwen"
+    },
+    {
+      "id": "llama3.2",
+      "name": "Llama 3.2",
+      "description": "مدل Llama 3.2"
+    }
+  ],
+  "default": "qwen3:4B"
+}

@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ollama UI - چت با مدل‌های AI</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <span class="logo-icon">OI</span>
+                    <span class="logo-text">Ollama UI</span>
+                </div>
+                <button class="new-chat-btn" id="newChatBtn">
+                    <i class="fas fa-pencil-alt"></i>
+                    <span>چت جدید</span>
+                </button>
+            </div>
+
+            <div class="sidebar-content">
+                <nav class="sidebar-nav">
+                    <button class="nav-item" id="settingsBtn">
+                        <i class="fas fa-cog"></i>
+                        <span>تنظیمات</span>
+                    </button>
+                </nav>
+
+                <div class="model-selector-section">
+                    <label for="modelSelect">مدل:</label>
+                    <select id="modelSelect" class="model-select">
+                        <option value="">در حال بارگذاری...</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="sidebar-footer">
+                <div class="user-profile">
+                    <div class="user-avatar">U</div>
+                    <span class="user-name">کاربر</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="chat-container">
+                <div class="chat-messages" id="chatMessages">
+                    <div class="welcome-message">
+                        <div class="welcome-logo">OI</div>
+                        <h1 id="welcomeModelName">در حال بارگذاری...</h1>
+                        <p>چطور می‌تونم کمکتون کنم؟</p>
+                    </div>
+                </div>
+
+                <div class="chat-input-container">
+                    <div class="system-prompt-toggle" id="systemPromptToggle">
+                        <i class="fas fa-cog"></i>
+                        <span>پرامپت سیستم</span>
+                    </div>
+                    
+                    <div class="system-prompt-input" id="systemPromptInput" style="display: none;">
+                        <textarea id="systemPromptText" placeholder="پرامپت سیستم را وارد کنید..."></textarea>
+                        <button class="close-btn" id="closeSystemPrompt">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+
+                    <div class="chat-input-wrapper">
+                        <div class="chat-input" id="chatInput" contenteditable="true" placeholder="چطور می‌تونم کمکتون کنم؟"></div>
+                        <div class="input-actions">
+                            <button class="action-btn" id="stopBtn" style="display: none;" title="توقف">
+                                <i class="fas fa-stop"></i>
+                            </button>
+                            <button class="action-btn" id="sendBtn" title="ارسال">
+                                <i class="fas fa-paper-plane"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/highlight.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/github-dark.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script src="/static/app.js"></script>
+</body>
+</html>
