@@ -7,7 +7,11 @@ const state = {
     websocket: null,
     isStreaming: false,
     systemPrompt: '',
-    currentMessageId: null
+    currentMessageId: null,
+    thinkingContent: '',
+    isThinkingCollapsed: false,
+    thinkingStartTime: null,
+    thinkingTimerInterval: null
 };
 
 // DOM Elements
@@ -19,38 +23,61 @@ const elements = {
     modelSelect: document.getElementById('modelSelect'),
     welcomeModelName: document.getElementById('welcomeModelName'),
     newChatBtn: document.getElementById('newChatBtn'),
-    systemPromptToggle: document.getElementById('systemPromptToggle'),
-    systemPromptInput: document.getElementById('systemPromptInput'),
+    systemPromptPopup: document.getElementById('systemPromptPopup'),
     systemPromptText: document.getElementById('systemPromptText'),
     closeSystemPrompt: document.getElementById('closeSystemPrompt'),
-    settingsBtn: document.getElementById('settingsBtn')
+    saveSystemPrompt: document.getElementById('saveSystemPrompt'),
+    settingsBtn: document.getElementById('settingsBtn'),
+    thinkingPanel: document.getElementById('thinkingPanel'),
+    thinkingPanelHeader: document.getElementById('thinkingPanelHeader'),
+    thinkingToggle: document.getElementById('thinkingToggle'),
+    thinkingText: document.getElementById('thinkingText'),
+    thinkingTimer: document.getElementById('thinkingTimer')
 };
 
-// Initialize Marked for Markdown rendering
+// Initialize Marked for Markdown rendering with better options
 marked.setOptions({
     breaks: true,
     gfm: true,
+    tables: true,
+    pedantic: false,
+    sanitize: false,
+    smartLists: true,
+    smartypants: true,
+    headerIds: false,
+    mangle: false,
     highlight: function(code, lang) {
         if (lang && hljs.getLanguage(lang)) {
             try {
                 return hljs.highlight(code, { language: lang }).value;
-            } catch (err) {}
+            } catch (err) {
+                return hljs.highlightAuto(code).value;
+            }
         }
         return hljs.highlightAuto(code).value;
     }
 });
 
-// Configure KaTeX for math rendering
-const renderMath = () => {
+// Configure KaTeX for math rendering with better options
+const renderMath = (element = null) => {
     if (typeof renderMathInElement !== 'undefined') {
-        renderMathInElement(elements.chatMessages, {
+        const targetElement = element || elements.chatMessages;
+        renderMathInElement(targetElement, {
             delimiters: [
                 {left: '$$', right: '$$', display: true},
                 {left: '$', right: '$', display: false},
                 {left: '\\[', right: '\\]', display: true},
-                {left: '\\(', right: '\\)', display: false}
+                {left: '\\(', right: '\\)', display: false},
+                {left: '\\begin{equation}', right: '\\end{equation}', display: true},
+                {left: '\\begin{align}', right: '\\end{align}', display: true},
+                {left: '\\begin{alignat}', right: '\\end{alignat}', display: true},
+                {left: '\\begin{gather}', right: '\\end{gather}', display: true},
+                {left: '\\begin{CD}', right: '\\end{CD}', display: true}
             ],
-            throwOnError: false
+            throwOnError: false,
+            errorColor: '#cc0000',
+            strict: false,
+            trust: true
         });
     }
 };
@@ -120,18 +147,31 @@ function handleWebSocketMessage(data) {
     switch (data.type) {
         case 'thinking':
             showThinkingIndicator();
+            state.thinkingContent = '';
+            // Start thinking panel with timer
+            showThinkingPanel();
+            break;
+        case 'thinking_chunk':
+            appendThinkingContent(data.content);
             break;
         case 'chunk':
             appendToLastMessage(data.content);
+            // Math rendering is handled in appendToLastMessage
             break;
         case 'done':
             hideThinkingIndicator();
             state.isStreaming = false;
             updateUI();
+            // Final math render
             renderMath();
+            // Hide thinking panel if empty
+            if (!state.thinkingContent.trim()) {
+                hideThinkingPanel();
+            }
             break;
         case 'cancelled':
             hideThinkingIndicator();
+            hideThinkingPanel();
             state.isStreaming = false;
             updateUI();
             if (state.currentMessageId) {
@@ -146,6 +186,7 @@ function handleWebSocketMessage(data) {
             break;
         case 'error':
             hideThinkingIndicator();
+            hideThinkingPanel();
             state.isStreaming = false;
             updateUI();
             addSystemMessage(data.content);
@@ -186,10 +227,25 @@ function addMessage(role, content, messageId = null) {
     if (role === 'user') {
         contentEl.textContent = content;
     } else {
-        contentEl.innerHTML = marked.parse(content);
+        // Parse markdown with better options
+        const parsed = marked.parse(content);
+        contentEl.innerHTML = parsed;
+        
         // Highlight code blocks
         contentEl.querySelectorAll('pre code').forEach((block) => {
-            hljs.highlightElement(block);
+            // Only highlight if not already highlighted
+            if (!block.classList.contains('hljs')) {
+                hljs.highlightElement(block);
+            }
+        });
+        
+        // Render math after DOM is ready
+        requestAnimationFrame(() => {
+            try {
+                renderMath(contentEl);
+            } catch (e) {
+                console.warn('Math rendering error:', e);
+            }
         });
     }
 
@@ -224,11 +280,28 @@ function appendToLastMessage(content) {
         const contentEl = messageEl.querySelector('.message-content');
         if (contentEl) {
             // Re-render markdown with new content
-            contentEl.innerHTML = marked.parse(lastMessage.content);
-            // Highlight code blocks
-            contentEl.querySelectorAll('pre code').forEach((block) => {
+            // Use a temporary div to avoid flickering
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = marked.parse(lastMessage.content);
+            
+            // Highlight code blocks before inserting
+            tempDiv.querySelectorAll('pre code').forEach((block) => {
                 hljs.highlightElement(block);
             });
+            
+            // Replace content
+            contentEl.innerHTML = tempDiv.innerHTML;
+            
+            // Render math after content is updated
+            // Use requestAnimationFrame for better performance
+            requestAnimationFrame(() => {
+                try {
+                    renderMath(contentEl);
+                } catch (e) {
+                    console.warn('Math rendering error:', e);
+                }
+            });
+            
             scrollToBottom();
         }
     }
@@ -255,6 +328,98 @@ function hideThinkingIndicator() {
     const indicator = document.getElementById('thinking-indicator');
     if (indicator) {
         indicator.remove();
+    }
+}
+
+// Show thinking panel
+function showThinkingPanel() {
+    if (elements.thinkingPanel) {
+        elements.thinkingPanel.style.display = 'block';
+        state.thinkingContent = '';
+        elements.thinkingText.textContent = '';
+        state.thinkingStartTime = Date.now();
+        
+        // Start timer
+        if (state.thinkingTimerInterval) {
+            clearInterval(state.thinkingTimerInterval);
+        }
+        state.thinkingTimerInterval = setInterval(() => {
+            if (state.thinkingStartTime && elements.thinkingTimer) {
+                const elapsed = Math.floor((Date.now() - state.thinkingStartTime) / 1000);
+                elements.thinkingTimer.textContent = elapsed;
+            }
+        }, 1000);
+        
+        // Auto-expand if collapsed
+        if (state.isThinkingCollapsed) {
+            toggleThinkingPanel();
+        }
+        scrollToBottom();
+    }
+}
+
+// Check if thinking panel should be shown
+function checkThinkingPanel() {
+    if (elements.thinkingPanel && state.thinkingContent.trim()) {
+        elements.thinkingPanel.style.display = 'block';
+    } else if (elements.thinkingPanel && !state.thinkingContent.trim()) {
+        elements.thinkingPanel.style.display = 'none';
+    }
+}
+
+// Hide thinking panel
+function hideThinkingPanel() {
+    // Stop timer
+    if (state.thinkingTimerInterval) {
+        clearInterval(state.thinkingTimerInterval);
+        state.thinkingTimerInterval = null;
+    }
+    state.thinkingStartTime = null;
+    
+    if (elements.thinkingPanel) {
+        // Don't hide immediately, keep it visible so user can see the final thinking
+        // Only hide if no content after streaming is done
+        if (!state.thinkingContent.trim() && !state.isStreaming) {
+            elements.thinkingPanel.style.display = 'none';
+        }
+    }
+}
+
+// Append thinking content
+function appendThinkingContent(content) {
+    if (elements.thinkingText && content) {
+        state.thinkingContent += content;
+        // Parse markdown for thinking content
+        const parsed = marked.parse(state.thinkingContent);
+        elements.thinkingText.innerHTML = parsed;
+        
+        // Highlight code blocks if any
+        elements.thinkingText.querySelectorAll('pre code').forEach((block) => {
+            if (!block.classList.contains('hljs')) {
+                hljs.highlightElement(block);
+            }
+        });
+        
+        checkThinkingPanel();
+        // Auto-scroll thinking panel if expanded
+        if (!state.isThinkingCollapsed && elements.thinkingPanel) {
+            const contentEl = elements.thinkingPanel.querySelector('.thinking-panel-content');
+            if (contentEl) {
+                contentEl.scrollTop = contentEl.scrollHeight;
+            }
+        }
+    }
+}
+
+// Toggle thinking panel
+function toggleThinkingPanel() {
+    if (elements.thinkingPanel) {
+        state.isThinkingCollapsed = !state.isThinkingCollapsed;
+        if (state.isThinkingCollapsed) {
+            elements.thinkingPanel.classList.add('collapsed');
+        } else {
+            elements.thinkingPanel.classList.remove('collapsed');
+        }
     }
 }
 
@@ -364,33 +529,69 @@ elements.modelSelect.addEventListener('change', (e) => {
 elements.newChatBtn.addEventListener('click', () => {
     state.messages = [];
     state.currentMessageId = null;
+    state.thinkingContent = '';
+    // Stop thinking timer if running
+    if (state.thinkingTimerInterval) {
+        clearInterval(state.thinkingTimerInterval);
+        state.thinkingTimerInterval = null;
+    }
+    state.thinkingStartTime = null;
+    hideThinkingPanel();
+    const currentModelName = elements.welcomeModelName ? elements.welcomeModelName.textContent : 'در حال بارگذاری...';
     elements.chatMessages.innerHTML = `
         <div class="welcome-message">
-            <div class="welcome-logo">OI</div>
-            <h1 id="welcomeModelName">${elements.welcomeModelName.textContent}</h1>
+            <h1 id="welcomeModelName">${currentModelName}</h1>
             <p>چطور می‌تونم کمکتون کنم؟</p>
         </div>
     `;
     elements.welcomeModelName = document.getElementById('welcomeModelName');
 });
 
-elements.systemPromptToggle.addEventListener('click', () => {
-    if (elements.systemPromptInput.style.display === 'none') {
-        elements.systemPromptInput.style.display = 'block';
-        elements.systemPromptText.value = state.systemPrompt;
-    } else {
-        elements.systemPromptInput.style.display = 'none';
+// Settings button opens system prompt popup
+elements.settingsBtn.addEventListener('click', () => {
+    elements.systemPromptText.value = state.systemPrompt;
+    elements.systemPromptPopup.style.display = 'flex';
+});
+
+// Close popup
+elements.closeSystemPrompt.addEventListener('click', () => {
+    elements.systemPromptPopup.style.display = 'none';
+});
+
+// Save system prompt
+elements.saveSystemPrompt.addEventListener('click', () => {
+    state.systemPrompt = elements.systemPromptText.value.trim();
+    elements.systemPromptPopup.style.display = 'none';
+});
+
+// Close popup when clicking outside
+elements.systemPromptPopup.addEventListener('click', (e) => {
+    if (e.target === elements.systemPromptPopup) {
+        elements.systemPromptPopup.style.display = 'none';
     }
 });
 
-elements.closeSystemPrompt.addEventListener('click', () => {
-    elements.systemPromptInput.style.display = 'none';
-    state.systemPrompt = elements.systemPromptText.value.trim();
-});
-
+// Update system prompt on input
 elements.systemPromptText.addEventListener('input', () => {
     state.systemPrompt = elements.systemPromptText.value.trim();
 });
+
+// Thinking panel toggle
+if (elements.thinkingPanelHeader) {
+    elements.thinkingPanelHeader.addEventListener('click', (e) => {
+        // Don't toggle if clicking on the toggle button itself (it has its own handler)
+        if (e.target !== elements.thinkingToggle && !elements.thinkingToggle.contains(e.target)) {
+            toggleThinkingPanel();
+        }
+    });
+}
+
+if (elements.thinkingToggle) {
+    elements.thinkingToggle.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleThinkingPanel();
+    });
+}
 
 // Initialize app
 async function init() {

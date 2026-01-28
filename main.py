@@ -97,7 +97,10 @@ async def websocket_chat(websocket: WebSocket):
                         json={
                             "model": model,
                             "messages": ollama_messages,
-                            "stream": True
+                            "stream": True,
+                            "options": {
+                                "num_predict": -1
+                            }
                         }
                     ) as response:
                         if response.status_code != 200:
@@ -109,6 +112,7 @@ async def websocket_chat(websocket: WebSocket):
                             continue
 
                         full_response = ""
+                        thinking_content = ""
                         async for line in response.aiter_lines():
                             # Check if cancelled
                             if cancellation_flags.get(str(connection_id), False):
@@ -123,15 +127,37 @@ async def websocket_chat(websocket: WebSocket):
 
                             try:
                                 chunk_data = json.loads(line)
+                                
+                                # Handle thinking/reasoning content
+                                # Ollama may send thinking in different formats:
+                                # 1. Direct "thinking" field
+                                # 2. In message.thinking
+                                # 3. In options or other fields
+                                thinking_text = None
+                                if "thinking" in chunk_data:
+                                    thinking_text = chunk_data.get("thinking", "")
+                                elif "message" in chunk_data and isinstance(chunk_data["message"], dict):
+                                    if "thinking" in chunk_data["message"]:
+                                        thinking_text = chunk_data["message"].get("thinking", "")
+                                
+                                if thinking_text:
+                                    thinking_content += thinking_text
+                                    await websocket.send_json({
+                                        "type": "thinking_chunk",
+                                        "content": thinking_text
+                                    })
+                                
+                                # Handle regular message content
                                 if "message" in chunk_data and "content" in chunk_data["message"]:
                                     content = chunk_data["message"]["content"]
-                                    full_response += content
-                                    
-                                    # Send chunk to client
-                                    await websocket.send_json({
-                                        "type": "chunk",
-                                        "content": content
-                                    })
+                                    if content:  # Only send non-empty content
+                                        full_response += content
+                                        
+                                        # Send chunk to client
+                                        await websocket.send_json({
+                                            "type": "chunk",
+                                            "content": content
+                                        })
 
                                 # Check if done
                                 if chunk_data.get("done", False):
@@ -164,4 +190,4 @@ async def websocket_chat(websocket: WebSocket):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="127.0.0.1", port=8000)

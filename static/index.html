@@ -3,76 +3,78 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ollama UI - چت با مدل‌های AI</title>
+    <title>Ollama Chat</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%234a9eff' rx='12'/><text x='50' y='70' font-size='60' font-weight='bold' fill='white' text-anchor='middle' font-family='Arial'>OI</text></svg>">
     <link rel="stylesheet" href="/static/styles.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
     <div class="app-container">
-        <!-- Sidebar -->
-        <aside class="sidebar">
-            <div class="sidebar-header">
-                <div class="logo">
-                    <span class="logo-icon">OI</span>
-                    <span class="logo-text">Ollama UI</span>
-                </div>
-                <button class="new-chat-btn" id="newChatBtn">
-                    <i class="fas fa-pencil-alt"></i>
-                    <span>چت جدید</span>
+        <!-- Header -->
+        <header class="app-header">
+            <div class="header-left">
+                <select id="modelSelect" class="model-select-header">
+                    <option value="">در حال بارگذاری...</option>
+                </select>
+            </div>
+            <div class="header-right">
+                <button class="new-chat-icon" id="newChatBtn" title="چت جدید">
+                    <i class="fas fa-comment"></i>
                 </button>
             </div>
-
-            <div class="sidebar-content">
-                <nav class="sidebar-nav">
-                    <button class="nav-item" id="settingsBtn">
-                        <i class="fas fa-cog"></i>
-                        <span>تنظیمات</span>
-                    </button>
-                </nav>
-
-                <div class="model-selector-section">
-                    <label for="modelSelect">مدل:</label>
-                    <select id="modelSelect" class="model-select">
-                        <option value="">در حال بارگذاری...</option>
-                    </select>
-                </div>
-            </div>
-
-            <div class="sidebar-footer">
-                <div class="user-profile">
-                    <div class="user-avatar">U</div>
-                    <span class="user-name">کاربر</span>
-                </div>
-            </div>
-        </aside>
+        </header>
 
         <!-- Main Content -->
         <main class="main-content">
             <div class="chat-container">
                 <div class="chat-messages" id="chatMessages">
                     <div class="welcome-message">
-                        <div class="welcome-logo">OI</div>
                         <h1 id="welcomeModelName">در حال بارگذاری...</h1>
                         <p>چطور می‌تونم کمکتون کنم؟</p>
                     </div>
                 </div>
+                
+                <!-- Thinking Collapsible Panel -->
+                <div class="thinking-panel" id="thinkingPanel" style="display: none;">
+                    <div class="thinking-panel-header" id="thinkingPanelHeader">
+                        <div class="thinking-panel-title">
+                            <i class="fas fa-infinity thinking-icon"></i>
+                            <span class="thinking-title-text">Thought for <span id="thinkingTimer">0</span> seconds</span>
+                        </div>
+                        <button class="thinking-toggle" id="thinkingToggle">
+                            <i class="fas fa-chevron-down"></i>
+                        </button>
+                    </div>
+                    <div class="thinking-panel-content" id="thinkingContent">
+                        <div class="thinking-text" id="thinkingText"></div>
+                    </div>
+                </div>
 
                 <div class="chat-input-container">
-                    <div class="system-prompt-toggle" id="systemPromptToggle">
-                        <i class="fas fa-cog"></i>
-                        <span>پرامپت سیستم</span>
-                    </div>
-                    
-                    <div class="system-prompt-input" id="systemPromptInput" style="display: none;">
-                        <textarea id="systemPromptText" placeholder="پرامپت سیستم را وارد کنید..."></textarea>
-                        <button class="close-btn" id="closeSystemPrompt">
-                            <i class="fas fa-times"></i>
-                        </button>
+                    <div class="system-prompt-popup" id="systemPromptPopup" style="display: none;">
+                        <div class="popup-content">
+                            <div class="popup-header">
+                                <h3>پرامپت سیستم</h3>
+                                <button class="popup-close" id="closeSystemPrompt">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                            <textarea id="systemPromptText" placeholder="پرامپت سیستم را وارد کنید..."></textarea>
+                            <div class="popup-footer">
+                                <button class="popup-save-btn" id="saveSystemPrompt">ذخیره</button>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="chat-input-wrapper">
+                        <button class="input-attach-btn" id="attachBtn" title="افزودن فایل">
+                            <i class="fas fa-plus"></i>
+                        </button>
                         <div class="chat-input" id="chatInput" contenteditable="true" placeholder="چطور می‌تونم کمکتون کنم؟"></div>
                         <div class="input-actions">
+                            <button class="action-btn settings-btn" id="settingsBtn" title="تنظیمات">
+                                <i class="fas fa-cog"></i>
+                            </button>
                             <button class="action-btn" id="stopBtn" style="display: none;" title="توقف">
                                 <i class="fas fa-stop"></i>
                             </button>
